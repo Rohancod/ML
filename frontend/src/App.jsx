@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './index.css'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
 /* Today's date in YYYY-MM-DD (local) */
 function todayStr() {

@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -7,14 +8,16 @@ import requests
 from datetime import datetime, date, timedelta, timezone
 
 # ── Load the trained model ──────────────────────────────────────────────────
-model = joblib.load("NY_Predict.pkl")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "NY_Predict.pkl")
+model = joblib.load(MODEL_PATH)
 
 app = FastAPI(title="NY Direction Predictor")
 
 # ── CORS ────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,11 +83,13 @@ class FeaturesInput(BaseModel):
 
 
 @app.get("/")
+@app.get("/api")
 def home():
     return {"message": "NY Direction Predictor API is running!"}
 
 
 @app.post("/predict")
+@app.post("/api/predict")
 def predict(data: FeaturesInput):
     input_df = pd.DataFrame([data.dict()])
     prediction    = int(model.predict(input_df)[0])
@@ -99,6 +104,7 @@ def predict(data: FeaturesInput):
 # ── Auto predict-by-date endpoint ────────────────────────────────────────────
 
 @app.get("/predict-by-date")
+@app.get("/api/predict-by-date")
 def predict_by_date(date: str = Query(..., description="Trade date in YYYY-MM-DD format")):
     """
     Given a trade date (YYYY-MM-DD), fetch BTC/USDT 1-min data from Binance,
