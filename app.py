@@ -23,7 +23,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BINANCE_KLINES_URL = "https://api.binance.com/api/v3/klines"
+BINANCE_ENDPOINTS = [
+    "https://data-api.binance.vision/api/v3/klines",
+    "https://api.binance.us/api/v3/klines",
+    "https://api.binance.com/api/v3/klines",
+]
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -34,7 +38,7 @@ def dt_to_ms(dt: datetime) -> int:
 
 
 def fetch_klines(symbol: str, interval: str, start_ms: int, end_ms: int, limit: int = 1000):
-    """Fetch klines from Binance with a single request."""
+    """Fetch klines from Binance with multi-endpoint fallback for cloud/Vercel environments."""
     params = {
         "symbol": symbol,
         "interval": interval,
@@ -42,12 +46,17 @@ def fetch_klines(symbol: str, interval: str, start_ms: int, end_ms: int, limit: 
         "endTime": end_ms,
         "limit": limit,
     }
-    try:
-        resp = requests.get(BINANCE_KLINES_URL, params=params, timeout=15)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"Binance API error: {str(e)}")
+    last_err = None
+    for url in BINANCE_ENDPOINTS:
+        try:
+            resp = requests.get(url, params=params, timeout=10)
+            if resp.status_code == 200:
+                return resp.json()
+            last_err = f"{resp.status_code} - {resp.text}"
+        except requests.exceptions.RequestException as e:
+            last_err = str(e)
+            continue
+    raise HTTPException(status_code=502, detail=f"Binance API error: {last_err}")
 
 
 def ohlc_from_klines(klines: list) -> dict:
